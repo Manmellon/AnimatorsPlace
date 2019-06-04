@@ -436,20 +436,7 @@ int main(int argc, char **argv)
 			}break;
 			case 2://Editor
 			{
-				if (isPlaying)
-				{
-				ImGui::SetNextWindowPos(ImVec2(0, menuHeight));
-				ImGui::SetNextWindowSize(ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8));
-				ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
-				ImGui::Begin("Center",NULL, ImVec2(0, 0),-1,window_flags);
-					
-						ImGui::ImageButton((void*)renderedFrames[playingFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,1),ImVec2(1,0),0,ImVec4(1,1,1,1));
-					//else
-					//	ImGui::ImageButton((void*)renderedFrames[curFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,0),ImVec2(1,1),0,ImVec4(1,1,1,1));
-					
-				ImGui::End();
-				ImGui::PopStyleColor();
-				}
+				
 				ImGui::SetNextWindowPos(ImVec2(window_w-window_w/3, menuHeight));
 				ImGui::SetNextWindowSize(ImVec2(window_w/3,(window_h-menuHeight)/3));
 				ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
@@ -616,6 +603,22 @@ int main(int argc, char **argv)
 				{
 					printf("%d %d\n",mx,my);
 				}*/
+				
+				if (isPlaying)
+				{
+					ImGui::SetNextWindowPos(ImVec2(0, menuHeight));
+					ImGui::SetNextWindowSize(ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8));
+					ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
+					ImGui::Begin("Center",NULL, ImVec2(0, 0),-1,window_flags);
+						//if (isPlaying)
+							ImGui::ImageButton((void*)renderedFrames[playingFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,1),ImVec2(1,0),0,ImVec4(1,1,1,1));
+						//else
+						//	ImGui::ImageButton((void*)renderedFrames[curFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,0),ImVec2(1,1),0,ImVec4(1,1,1,1));
+						
+					ImGui::End();
+					ImGui::PopStyleColor();
+				}
+				
 				if (!isPlaying)
 				{
 					//if (1/*mx>=0&&mx<=window_w-window_w/3&&
