@@ -33,6 +33,7 @@ struct layer
 struct frame
 {
 	vector<layer> layers;
+	size_t curLayer;
 	int alpha;
 };
 struct toon
@@ -54,6 +55,8 @@ bool needRedraw=true;
 int playingFrame;
 
 int menuHeight, menuWidth;
+
+//vector<int> curLayers={0};
 
 void DrawFrame(int n);
 Uint32 DrawFrame_callback(Uint32 interval, void *param);
@@ -168,14 +171,17 @@ int main(int argc, char **argv)
 
 	tmpFrame.layers.push_back(tmpLayer);
 	myToon.frames.push_back(tmpFrame);
-
+	
+	/*size_t*/int curFrame = 0;
+    
+	///*size_t*/int prevFrame = 0;
+	///*size_t*/int prevPrevFrame = 0;
+	
+	myToon.frames[curFrame].curLayer = 0;
     frame copiedFrameBuffer;
     
     static int penSize = 1;
-    /*size_t*/int curFrame = 0;
-    vector<int> curLayers={0};
-	///*size_t*/int prevFrame = 0;
-	///*size_t*/int prevPrevFrame = 0;
+    
     
     float curColor[4]={0};
     
@@ -262,9 +268,9 @@ int main(int argc, char **argv)
 						}
 					break;
 					case SDLK_z:
-						if (myToon.frames[curFrame].layers[0].lines.size()&&!wasPressed)
+						if (myToon.frames[curFrame].layers[myToon.frames[curFrame].curLayer].lines.size()&&!wasPressed)
 						{
-							myToon.frames[curFrame].layers[0].lines.pop_back();
+							myToon.frames[curFrame].layers[myToon.frames[curFrame].curLayer].lines.pop_back();
 							needRedraw=true;
 						}
 					break;
@@ -500,7 +506,7 @@ int main(int argc, char **argv)
 						tmpFrame.layers.push_back(tmpLayer);
 						curFrame++;
 						myToon.frames.insert(myToon.frames.begin()+curFrame,tmpFrame);
-						
+						myToon.frames[curFrame].curLayer = 0;
 						needRedraw = true;
 						
 						GLuint tmpTex;
@@ -571,7 +577,7 @@ int main(int argc, char **argv)
 				ImGui::PushStyleColor(ImGuiCol_ScrollbarBg,ImVec4(0.4f,0.4f,0.4f,1.f));
 				ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize,window_h/8/5);
 				ImGui::Begin("BottomCenter",NULL, ImVec2(0, 0),-1,window_flags);
-					//Frames
+					//MiniFrames
 					for (size_t i=0;i<myToon.frames.size();i++)
 					{
 						ImGui::SameLine();
@@ -787,15 +793,14 @@ int main(int argc, char **argv)
 		}
 		
         ImGui::Render();
-
-		if (state==2&&!isPlaying)
+        if (state==2&&!isPlaying)
 		{
 			//printf("%u\n",curFrame);
 			glPointSize(1);
 			//if (!isPlaying)
 			//{
-				//glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
 				glViewport(0, 0, window_w, window_h);
+				
 				//glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				
 				glClearColor(1,1,1,1);
@@ -836,7 +841,9 @@ int main(int argc, char **argv)
 			//}
 			
 		}//if (state==2)
+        
         ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+		
 		glColor4f(curColor[0],curColor[1],curColor[2],curColor[3]);
 		//DrawCircle(mx, my, penSize/2,penSize);
 		SDL_GL_SwapWindow(window);
@@ -864,6 +871,7 @@ void DrawFrame(int n)
 {
 	int curFrame = n;/*playingFrame*/ //*(int*)param;
 	
+	size_t l=myToon.frames[curFrame].curLayer;
 	size_t i;
 	if (needRedraw)
 	{
@@ -872,9 +880,10 @@ void DrawFrame(int n)
 	}
 	else
 	{
-		i=myToon.frames[curFrame].layers[0].lines.size()-1;
+		i=myToon.frames[curFrame].layers[l].lines.size()-1;
 	}
-	for (;i<myToon.frames[curFrame].layers[0].lines.size();i++)
+	
+	for (;i<myToon.frames[curFrame].layers[l].lines.size();i++)
 	{
 		//glEnable(GL_POINT_SMOOTH);
 		
@@ -886,16 +895,16 @@ void DrawFrame(int n)
 		point tmpPoint;
 		
 		//taken from here: http://slabode.exofire.net/circle_draw.shtml
-		float theta = 2 * 3.1415926 / (float)myToon.frames[curFrame].layers[0].lines[i].width; 
+		float theta = 2 * 3.1415926 / (float)myToon.frames[curFrame].layers[l].lines[i].width; 
 		float tangetial_factor = tanf(theta);//calculate the tangential factor 
 
 		float radial_factor = cosf(theta);//calculate the radial factor 
 		
-		float x = (float)myToon.frames[curFrame].layers[0].lines[i].width/2.;//we start at angle = 0 
+		float x = (float)myToon.frames[curFrame].layers[l].lines[i].width/2.;//we start at angle = 0 
 
 		float y = 0; 
 
-		for(int ii = 0; ii < myToon.frames[curFrame].layers[0].lines[i].width+15; ii++) 
+		for(int ii = 0; ii < myToon.frames[curFrame].layers[l].lines[i].width+15; ii++) 
 		{ 
 			//glVertex2f(x + cx, y + cy);//output vertex 
 			tmpPoint.x=x;//round(x);
@@ -927,46 +936,47 @@ void DrawFrame(int n)
 		}
 		else
 		{
-			j=myToon.frames[curFrame].layers[0].lines[i].points.size()-2;
+			j=myToon.frames[curFrame].layers[l].lines[i].points.size()-2;
 		}*/
-		for (j=0;j+1<myToon.frames[curFrame].layers[0].lines[i].points.size();j++)
+		
+		for (j=0;j+1<myToon.frames[curFrame].layers[l].lines[i].points.size();j++)
 		{
 			//glVertex2i(points[i][j].x/**window_w/500*/,points[i][j].y/**window_h/300*/);
 			//glVertex2i(points[i][j+1].x/**window_w/500*/,points[i][j+1].y/**window_h/300*/);
-			glColor4f(myToon.frames[curFrame].layers[0].lines[i].r,
-			  myToon.frames[curFrame].layers[0].lines[i].g,
-			  myToon.frames[curFrame].layers[0].lines[i].b,
-			  myToon.frames[curFrame].layers[0].lines[i].a);
+			glColor4f(myToon.frames[curFrame].layers[l].lines[i].r,
+			  myToon.frames[curFrame].layers[l].lines[i].g,
+			  myToon.frames[curFrame].layers[l].lines[i].b,
+			  myToon.frames[curFrame].layers[l].lines[i].a);
 			float lineLength = sqrt(
-				pow(myToon.frames[curFrame].layers[0].lines[i].points[j].x-
-					myToon.frames[curFrame].layers[0].lines[i].points[j+1].x
+				pow(myToon.frames[curFrame].layers[l].lines[i].points[j].x-
+					myToon.frames[curFrame].layers[l].lines[i].points[j+1].x
 					,2)
 				+
-				pow(myToon.frames[curFrame].layers[0].lines[i].points[j].y-
-					myToon.frames[curFrame].layers[0].lines[i].points[j+1].y
+				pow(myToon.frames[curFrame].layers[l].lines[i].points[j].y-
+					myToon.frames[curFrame].layers[l].lines[i].points[j+1].y
 					,2)
 				);
 			
 			float rotAngle = atan(
-				(myToon.frames[curFrame].layers[0].lines[i].points[j+1].y-
-				myToon.frames[curFrame].layers[0].lines[i].points[j].y)
+				(myToon.frames[curFrame].layers[l].lines[i].points[j+1].y-
+				myToon.frames[curFrame].layers[l].lines[i].points[j].y)
 				/
-				(myToon.frames[curFrame].layers[0].lines[i].points[j+1].x-
-				myToon.frames[curFrame].layers[0].lines[i].points[j].x)
+				(myToon.frames[curFrame].layers[l].lines[i].points[j+1].x-
+				myToon.frames[curFrame].layers[l].lines[i].points[j].x)
 				) * 180/M_PI;
 			if (lineLength<1e-5)
 				rotAngle=0;
 			//printf("len=%f angle=%f\n",lineLength,rotAngle);
 			/*
 			glBegin(GL_POINTS);
-				glVertex2i(myToon.frames[0].layers[0].lines[i].points[j].x,myToon.frames[0].layers[0].lines[i].points[j].y);
-				glVertex2i(myToon.frames[0].layers[0].lines[i].points[j+1].x,myToon.frames[0].layers[0].lines[i].points[j+1].y);
+				glVertex2i(myToon.frames[0].layers[l].lines[i].points[j].x,myToon.frames[0].layers[l].lines[i].points[j].y);
+				glVertex2i(myToon.frames[0].layers[l].lines[i].points[j+1].x,myToon.frames[0].layers[l].lines[i].points[j+1].y);
 			glEnd();
 			*/
-			glTranslatef(myToon.frames[curFrame].layers[0].lines[i].points[j].x,
-				myToon.frames[curFrame].layers[0].lines[i].points[j].y,
+			glTranslatef(myToon.frames[curFrame].layers[l].lines[i].points[j].x,
+				myToon.frames[curFrame].layers[l].lines[i].points[j].y,
 				0);
-			if(myToon.frames[curFrame].layers[0].lines[i].width>1)
+			if(myToon.frames[curFrame].layers[l].lines[i].width>1)
 			{
 			glBegin(GL_TRIANGLE_FAN);
 				for (size_t p=0;p+1<tmpCircle.size();p++)
@@ -976,15 +986,15 @@ void DrawFrame(int n)
 				}
 			glEnd();
 			}
-			//DrawCircle(0, 0, myToon.frames[curFrame].layers[0].lines[i].width/2.,myToon.frames[curFrame].layers[0].lines[i].width);
-			glTranslatef(-myToon.frames[curFrame].layers[0].lines[i].points[j].x,
-				-myToon.frames[curFrame].layers[0].lines[i].points[j].y,
+			//DrawCircle(0, 0, myToon.frames[curFrame].layers[l].lines[i].width/2.,myToon.frames[curFrame].layers[l].lines[i].width);
+			glTranslatef(-myToon.frames[curFrame].layers[l].lines[i].points[j].x,
+				-myToon.frames[curFrame].layers[l].lines[i].points[j].y,
 				0);
 			
-			glTranslatef(myToon.frames[curFrame].layers[0].lines[i].points[j+1].x,
-				myToon.frames[curFrame].layers[0].lines[i].points[j+1].y,
+			glTranslatef(myToon.frames[curFrame].layers[l].lines[i].points[j+1].x,
+				myToon.frames[curFrame].layers[l].lines[i].points[j+1].y,
 				0);
-			if(myToon.frames[curFrame].layers[0].lines[i].width>1)
+			if(myToon.frames[curFrame].layers[l].lines[i].width>1)
 			{
 			glBegin(GL_TRIANGLE_FAN);
 				for (size_t p=0;p+1<tmpCircle.size();p++)
@@ -993,58 +1003,58 @@ void DrawFrame(int n)
 				}
 			glEnd();
 			}
-			//DrawCircle(0, 0, myToon.frames[curFrame].layers[0].lines[i].width/2.,myToon.frames[curFrame].layers[0].lines[i].width);
-			glTranslatef(-myToon.frames[curFrame].layers[0].lines[i].points[j+1].x,
-				-myToon.frames[curFrame].layers[0].lines[i].points[j+1].y,
+			//DrawCircle(0, 0, myToon.frames[curFrame].layers[l].lines[i].width/2.,myToon.frames[curFrame].layers[l].lines[i].width);
+			glTranslatef(-myToon.frames[curFrame].layers[l].lines[i].points[j+1].x,
+				-myToon.frames[curFrame].layers[l].lines[i].points[j+1].y,
 				0);
 			
-			if (myToon.frames[curFrame].layers[0].lines[i].points[j+1].x>=
-		myToon.frames[curFrame].layers[0].lines[i].points[j].x)
+			if (myToon.frames[curFrame].layers[l].lines[i].points[j+1].x>=
+		myToon.frames[curFrame].layers[l].lines[i].points[j].x)
 			{
-				glTranslatef(myToon.frames[curFrame].layers[0].lines[i].points[j].x+
-						myToon.frames[curFrame].layers[0].lines[i].width/2*cos((rotAngle-90)/180*M_PI),
-					myToon.frames[curFrame].layers[0].lines[i].points[j].y+
-						myToon.frames[curFrame].layers[0].lines[i].width/2*sin((rotAngle-90)/180*M_PI),
+				glTranslatef(myToon.frames[curFrame].layers[l].lines[i].points[j].x+
+						myToon.frames[curFrame].layers[l].lines[i].width/2*cos((rotAngle-90)/180*M_PI),
+					myToon.frames[curFrame].layers[l].lines[i].points[j].y+
+						myToon.frames[curFrame].layers[l].lines[i].width/2*sin((rotAngle-90)/180*M_PI),
 					0);
 			}
 			else
 			{
-				glTranslatef(myToon.frames[curFrame].layers[0].lines[i].points[j+1].x+
-						myToon.frames[curFrame].layers[0].lines[i].width/2*cos((rotAngle-90)/180*M_PI),
-					myToon.frames[curFrame].layers[0].lines[i].points[j+1].y+
-						myToon.frames[curFrame].layers[0].lines[i].width/2*sin((rotAngle-90)/180*M_PI),
+				glTranslatef(myToon.frames[curFrame].layers[l].lines[i].points[j+1].x+
+						myToon.frames[curFrame].layers[l].lines[i].width/2*cos((rotAngle-90)/180*M_PI),
+					myToon.frames[curFrame].layers[l].lines[i].points[j+1].y+
+						myToon.frames[curFrame].layers[l].lines[i].width/2*sin((rotAngle-90)/180*M_PI),
 					0);
 			}
 			glRotatef(rotAngle, 0.0f, 0.0f, 1.0f);
 			
-			//Here is bug with odd width. Now its stupid fix "-myToon.frames[curFrame].layers[0].lines[i].width%2"*/
+			//Here is bug with odd width. Now its stupid fix "-myToon.frames[curFrame].layers[l].lines[i].width%2"*/
 			glBegin(GL_QUAD_STRIP);
 				glVertex2f(0,0);
-				glVertex2f(0,myToon.frames[curFrame].layers[0].lines[i].width);/*>1?
-					myToon.frames[curFrame].layers[0].lines[i].width-myToon.frames[curFrame].layers[0].lines[i].width%2
-					:myToon.frames[curFrame].layers[0].lines[i].width);*/
+				glVertex2f(0,myToon.frames[curFrame].layers[l].lines[i].width);/*>1?
+					myToon.frames[curFrame].layers[l].lines[i].width-myToon.frames[curFrame].layers[l].lines[i].width%2
+					:myToon.frames[curFrame].layers[l].lines[i].width);*/
 				glVertex2f(lineLength,0);
-				glVertex2f(lineLength,myToon.frames[curFrame].layers[0].lines[i].width);/*>1?
-					myToon.frames[curFrame].layers[0].lines[i].width-myToon.frames[curFrame].layers[0].lines[i].width%2
-					:myToon.frames[curFrame].layers[0].lines[i].width);*/
+				glVertex2f(lineLength,myToon.frames[curFrame].layers[l].lines[i].width);/*>1?
+					myToon.frames[curFrame].layers[l].lines[i].width-myToon.frames[curFrame].layers[l].lines[i].width%2
+					:myToon.frames[curFrame].layers[l].lines[i].width);*/
 			glEnd();
 			
 			glRotatef(-rotAngle, 0.0f, 0.0f, 1.0f);
-			if (myToon.frames[curFrame].layers[0].lines[i].points[j+1].x>=
-		myToon.frames[curFrame].layers[0].lines[i].points[j].x)
+			if (myToon.frames[curFrame].layers[l].lines[i].points[j+1].x>=
+		myToon.frames[curFrame].layers[l].lines[i].points[j].x)
 			{
-		glTranslatef(-(myToon.frames[curFrame].layers[0].lines[i].points[j].x+
-				myToon.frames[curFrame].layers[0].lines[i].width/2*cos((rotAngle-90)/180*M_PI)),
-			-(myToon.frames[curFrame].layers[0].lines[i].points[j].y+
-				myToon.frames[curFrame].layers[0].lines[i].width/2*sin((rotAngle-90)/180*M_PI)),
+		glTranslatef(-(myToon.frames[curFrame].layers[l].lines[i].points[j].x+
+				myToon.frames[curFrame].layers[l].lines[i].width/2*cos((rotAngle-90)/180*M_PI)),
+			-(myToon.frames[curFrame].layers[l].lines[i].points[j].y+
+				myToon.frames[curFrame].layers[l].lines[i].width/2*sin((rotAngle-90)/180*M_PI)),
 			0);
 			}
 			else
 			{
-		glTranslatef(-(myToon.frames[curFrame].layers[0].lines[i].points[j+1].x+
-				myToon.frames[curFrame].layers[0].lines[i].width/2*cos((rotAngle-90)/180*M_PI)),
-			-(myToon.frames[curFrame].layers[0].lines[i].points[j+1].y+
-				myToon.frames[curFrame].layers[0].lines[i].width/2*sin((rotAngle-90)/180*M_PI)),
+		glTranslatef(-(myToon.frames[curFrame].layers[l].lines[i].points[j+1].x+
+				myToon.frames[curFrame].layers[l].lines[i].width/2*cos((rotAngle-90)/180*M_PI)),
+			-(myToon.frames[curFrame].layers[l].lines[i].points[j+1].y+
+				myToon.frames[curFrame].layers[l].lines[i].width/2*sin((rotAngle-90)/180*M_PI)),
 			0);
 			}
 			//for mouse
@@ -1066,31 +1076,6 @@ void DrawFrame(int n)
 
 Uint32 DrawFrame_callback(Uint32 interval, void *param)
 {
-    /*SDL_GLContext gl_context = SDL_GL_CreateContext(window);//WHY NEED I CREATE IT AGAIN?
-	//SDL_GLContext gl_context = *(SDL_GLContext*)param;
-	//SDL_GL_MakeCurrent(window,gl_context);
-
-	//printf("%d %d\n",gl_context,wglGetCurrentContext());
-	needRedraw = true;
-	
-	//printf("glError: %d\n",glGetError());
-	glViewport(0, 0, window_w, window_h);
-	printf("glError: %d\n",glGetError());
-	glClearColor(1,1,1,1);
-	//glClearColor(0,0,0,0);
-	if (needRedraw)
-    {
-		glClear(GL_COLOR_BUFFER_BIT);
-	}
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(0, window_w, window_h,0 );
-	//DrawFrame(playingFrame);
-	
-	//ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-    //SDL_GL_SwapWindow(window);
-    SDL_GL_DeleteContext(gl_context);
-	*/
 	needRedraw = true;
 	printf("%d frame drown\n",playingFrame);
 	if ((size_t)playingFrame+1<myToon.frames.size())
