@@ -33,11 +33,18 @@ struct layer
 struct frame
 {
 	vector<layer> layers;
+	int alpha;
 };
 struct toon
 {
 	vector<frame> frames;
 	size_t framerate;
+};
+
+struct renderedFrame
+{
+	GLuint frameTex, miniFrameTex;
+	vector<GLuint> layerTex, miniLayerTex;
 };
 
 SDL_Window* window;
@@ -63,8 +70,8 @@ int main(int argc, char **argv)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 	
-	window_w = displayMode.w;//*0.9;
-	window_h = displayMode.h;//*0.9;
+	window_w = displayMode.w;//*0.5;
+	window_h = displayMode.h;//*0.5;
 	
 	window = SDL_CreateWindow(
 							"Animators Place",
@@ -166,6 +173,7 @@ int main(int argc, char **argv)
     
     static int penSize = 1;
     /*size_t*/int curFrame = 0;
+    vector<int> curLayers={0};
 	///*size_t*/int prevFrame = 0;
 	///*size_t*/int prevPrevFrame = 0;
     
@@ -187,7 +195,8 @@ int main(int argc, char **argv)
 	glBindTexture(GL_TEXTURE_2D, renderedFrames[0]);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);		
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );		
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+			
 	glBindTexture(GL_TEXTURE_2D, 0);
 	
 	SDL_SetWindowResizable(window,SDL_FALSE);
@@ -427,11 +436,20 @@ int main(int argc, char **argv)
 			}break;
 			case 2://Editor
 			{
-				/*ImGui::SetNextWindowPos(ImVec2(window_w/4, 0));
-				ImGui::SetNextWindowSize(ImVec2((window_w-window_w/4)/6,window_h));
-				ImGui::Begin("Left",NULL, ImVec2(0, 0),-1,window_flags);
+				if (isPlaying)
+				{
+				ImGui::SetNextWindowPos(ImVec2(0, menuHeight));
+				ImGui::SetNextWindowSize(ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8));
+				ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
+				ImGui::Begin("Center",NULL, ImVec2(0, 0),-1,window_flags);
+					
+						ImGui::ImageButton((void*)renderedFrames[playingFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,1),ImVec2(1,0),0,ImVec4(1,1,1,1));
+					//else
+					//	ImGui::ImageButton((void*)renderedFrames[curFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,0),ImVec2(1,1),0,ImVec4(1,1,1,1));
+					
 				ImGui::End();
-				*/
+				ImGui::PopStyleColor();
+				}
 				ImGui::SetNextWindowPos(ImVec2(window_w-window_w/3, menuHeight));
 				ImGui::SetNextWindowSize(ImVec2(window_w/3,(window_h-menuHeight)/3));
 				ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
@@ -767,7 +785,7 @@ int main(int argc, char **argv)
 		
         ImGui::Render();
 
-		if (state==2)
+		if (state==2&&!isPlaying)
 		{
 			//printf("%u\n",curFrame);
 			glPointSize(1);
@@ -787,10 +805,22 @@ int main(int argc, char **argv)
 				glLoadIdentity();
 				gluOrtho2D( 0.0, window_w, window_h,0.0 );
 				//printf("before frame %d\n",SDL_GetTicks()-ms);
+				
+				//if need full Render
+				//else{
+				//Draw old texture
+				//Render new points}
+				//Copy new texture
+				//Draw circle
+				
 				if (isPlaying)
-					DrawFrame(playingFrame);
+				{
+					//DrawFrame(playingFrame);
+				}
 				else
-					DrawFrame(curFrame);				
+				{
+					DrawFrame(curFrame);
+				}
 				
 				if (!isPlaying)
 				{
