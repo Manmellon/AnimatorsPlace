@@ -52,6 +52,7 @@ SDL_Window* window;
 int window_w,window_h;
 toon myToon;
 bool needRedraw=true;
+bool needFullRender, needClear;
 int playingFrame;
 
 int menuHeight, menuWidth;
@@ -179,11 +180,11 @@ int main(int argc, char **argv)
 	
 	myToon.frames[curFrame].curLayer = 0;
     frame copiedFrameBuffer;
-    
+    size_t copiedFrameIndex;
     static int penSize = 1;
     
     
-    float curColor[4]={0};
+    float curColor[4]={0,0,0,1};
     
     int mx,my;
 	unsigned int mouseState;
@@ -199,14 +200,30 @@ int main(int argc, char **argv)
 	vector<GLuint> renderedFrames(1);
 	glGenTextures(1, &renderedFrames[0]);
 	glBindTexture(GL_TEXTURE_2D, renderedFrames[0]);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);		
+	unsigned char *data = new unsigned char[(window_w-window_w/3) * (window_h-menuHeight-window_h/8) * 4];
+	for(int i = 0; i < (window_w-window_w/3) * (window_h-menuHeight-window_h/8) * 4; i++)data[i] = 255;
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);		
+	delete[] data;
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-			
 	glBindTexture(GL_TEXTURE_2D, 0);
+	
+	GLuint renderedCanvas;
 	
 	SDL_SetWindowResizable(window,SDL_FALSE);
 	
+	
+	/*glBindTexture(GL_TEXTURE_2D, renderedFrames[curFrame]);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0); glVertex2f(0,menuHeight);
+	glTexCoord2f(0, 1); glVertex2f(0,window_h-menuHeight-window_h/8);
+	glTexCoord2f(1, 1); glVertex2f(window_w-window_w/3,window_h-menuHeight-window_h/8);
+	glTexCoord2f(1, 0); glVertex2f(window_w-window_w/3,menuHeight);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	//SDL_GL_SwapWindow(window);
+	//while(1);
+    */
     while(!quit)
     {
 		ms = SDL_GetTicks();
@@ -243,6 +260,7 @@ int main(int argc, char **argv)
 				{
 					puts("Window restored");
 					SDL_SetWindowResizable(window,SDL_FALSE);
+					needClear = true;
 				}
 				if (event.window.event==SDL_WINDOWEVENT_MAXIMIZED)
 				{
@@ -259,19 +277,38 @@ int main(int argc, char **argv)
 				//printf("%d %d %d\n",event.key.keysym.scancode,SDLK_v,SDL_SCANCODE_V);
 				switch(event.key.keysym.sym)
 				{
-					case SDLK_c: copiedFrameBuffer = myToon.frames[curFrame];break;
+					case SDLK_c: 
+					{
+						copiedFrameBuffer = myToon.frames[curFrame];
+						copiedFrameIndex = curFrame;
+					}break;
 					case SDLK_v: 
 						if (!wasPressed)
 						{
 							myToon.frames[curFrame] = copiedFrameBuffer;
-							needRedraw = true;
+							
+							glDeleteTextures(1, &renderedFrames[curFrame]);
+							glGenTextures(1, &renderedFrames[curFrame]);
+							glBindTexture(GL_TEXTURE_2D, renderedFrames[copiedFrameIndex]);
+							unsigned char *data = new unsigned char[(window_w-window_w/3) * (window_h-menuHeight-window_h/8) * 4];
+							glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+							glBindTexture(GL_TEXTURE_2D, renderedFrames[curFrame]);
+							glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);		
+							delete[] data;
+							glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+							glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );		
+							glBindTexture(GL_TEXTURE_2D, 0);
+							
+							//needRedraw = true;
+							needClear = true;
 						}
 					break;
 					case SDLK_z:
 						if (myToon.frames[curFrame].layers[myToon.frames[curFrame].curLayer].lines.size()&&!wasPressed)
 						{
 							myToon.frames[curFrame].layers[myToon.frames[curFrame].curLayer].lines.pop_back();
-							needRedraw=true;
+							//needRedraw=false;
+							needFullRender = true;
 						}
 					break;
 				}
@@ -325,7 +362,8 @@ int main(int argc, char **argv)
 			//if (ImGui::InvisibleButton("",ImVec2(window_w/10,menuHeight/2)))
 			{
 				state = i;
-				needRedraw = true;
+				//needRedraw = true;
+				needClear = true;
 			}
 			ImGui::PopID();
 			
@@ -447,7 +485,13 @@ int main(int argc, char **argv)
 				ImGui::SetNextWindowSize(ImVec2(window_w/3,(window_h-menuHeight)/3));
 				ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
 				ImGui::Begin("Layers",NULL, ImVec2(0, 0),-1,window_flags);
-				
+					ImGui::PushFont(smallFont);
+					for (size_t i=0;i<myToon.frames[curFrame].layers.size();i++)
+					{
+						//ImGui::Image();
+						ImGui::TextColored(ImVec4(0.f,0.f,0.f,1.f),"Layer %d",i+1);
+					}
+					ImGui::PopFont();
 				ImGui::End();
 				ImGui::PopStyleColor();
 				
@@ -507,14 +551,19 @@ int main(int argc, char **argv)
 						curFrame++;
 						myToon.frames.insert(myToon.frames.begin()+curFrame,tmpFrame);
 						myToon.frames[curFrame].curLayer = 0;
-						needRedraw = true;
-						
+						//needRedraw = true;
+						//needFullRender = true;
+						needClear = true;
 						GLuint tmpTex;
-						//size_t frameNum = renderedFrames.size();
+						
 						renderedFrames.insert(renderedFrames.begin()+curFrame,tmpTex);
 						glGenTextures(1, &renderedFrames[curFrame]);
 						glBindTexture(GL_TEXTURE_2D, renderedFrames[curFrame]);
-						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);		
+						unsigned char *data = new unsigned char[(window_w-window_w/3) * (window_h-menuHeight-window_h/8) * 4];
+						for(int i = 0; i < (window_w-window_w/3) * (window_h-menuHeight-window_h/8) * 4; i++)data[i] = 255;
+	
+						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_w-window_w/3,window_h-menuHeight-window_h/8, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);		
+						delete[] data;
 						glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 						glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );		
 						glBindTexture(GL_TEXTURE_2D, 0);
@@ -531,10 +580,13 @@ int main(int argc, char **argv)
 						if (myToon.frames.size()>1)
 						{
 							myToon.frames.erase(myToon.frames.begin()+curFrame);
+							glDeleteTextures(1, &renderedFrames[curFrame]);
+							
 							renderedFrames.erase(renderedFrames.begin()+curFrame);
 							if (curFrame>0)
 								curFrame--;
-							needRedraw = true;
+							//needRedraw = true;
+							needClear = true;
 						}
 					}
 					if (ImGui::IsItemHovered() || ImGui::IsItemFocused())
@@ -553,14 +605,15 @@ int main(int argc, char **argv)
 							my_timer_id = SDL_AddTimer(100, DrawFrame_callback, &gl_context);
 							
 							isPlaying = true;
-							needRedraw = true;
+							//needRedraw = true;
 							puts("start");
 						}
 						else
 						{
 							SDL_RemoveTimer(my_timer_id);
 							isPlaying = false;
-							needRedraw = true;
+							//needRedraw = true;
+							//needClear = true;
 							puts("stop");
 						}
 					}
@@ -588,7 +641,9 @@ int main(int argc, char **argv)
 						if (ImGui::ImageButton((void*)(intptr_t)renderedFrames[i]/*buttonsTextures[4]*/,ImVec2((window_h/8*4/5)*4/3,window_h/8*4/5/*4*window_w/60,3*window_w/60*/),ImVec2(0,1),ImVec2(1,0),0,menuColor))
 						{
 							curFrame=i;
-							needRedraw = true;
+							//needRedraw = true;
+							//needRedraw = false;
+							//needClear = true;
 						}
 						ImGui::PopStyleVar();
 						ImGui::PopStyleColor();
@@ -610,50 +665,32 @@ int main(int argc, char **argv)
 					printf("%d %d\n",mx,my);
 				}*/
 				
-				if (isPlaying)
-				{
+				//if (isPlaying)
+				//{
 					ImGui::SetNextWindowPos(ImVec2(0, menuHeight));
 					ImGui::SetNextWindowSize(ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8));
-					ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor);
+					ImGui::PushStyleColor(ImGuiCol_WindowBg,lightColor/*ImVec4(1.f,1.f,1.f,1.f)*/);
 					ImGui::Begin("Center",NULL, ImVec2(0, 0),-1,window_flags);
-						//if (isPlaying)
+						if (isPlaying)
 							ImGui::ImageButton((void*)renderedFrames[playingFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,1),ImVec2(1,0),0,ImVec4(1,1,1,1));
-						//else
-						//	ImGui::ImageButton((void*)renderedFrames[curFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,0),ImVec2(1,1),0,ImVec4(1,1,1,1));
-						
-					ImGui::End();
-					ImGui::PopStyleColor();
-				}
-				
-				if (!isPlaying)
-				{
-					//if (1/*mx>=0&&mx<=window_w-window_w/3&&
-					//	my>=0&&my<=window_h-window_h/8*/)
-					//{
-						//printf("%d %d\n",mx,my);
-						//int mx,my;
-						//unsigned int mouseState = SDL_GetMouseState(&mx,&my);
+						else
+							ImGui::ImageButton((void*)renderedFrames[curFrame], ImVec2(window_w-window_w/3,window_h-menuHeight-window_h/8),ImVec2(0,1),ImVec2(1,0),0,ImVec4(1,1,1,1));
+					if (!isPlaying)
+					{
 						point mp;
 						mp.x=ImGui::GetIO().MousePos.x;
-							//mx;
 						mp.y=ImGui::GetIO().MousePos.y;
-							//my;
 						//needRedraw=true;//too stupid...
-
-						//if ((mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))/*&&(!wasPressed)*/)
 						if (ImGui::IsMouseDown(0))
-						//if (io.MouseDownDuration[0] >= 0.0f)
 						{
 							//puts("Mouse left click");
-							if (ImGui::IsMouseClicked(0)&&!wasPressed&&mx>=0&&mx<=window_w-window_w/3&&
-							my>=menuHeight&&my<=window_h-window_h/8)
+							//if (ImGui::IsMouseClicked(0)&&!wasPressed&&mx>=0&&mx<=window_w-window_w/3&&
+							//my>=menuHeight&&my<=window_h-window_h/8)
+							if (!wasPressed&&ImGui::IsItemClicked())
 							{
-								
 								//puts("first pressed");
 								//printf("%d %d\n",mx,my);
 								wasPressed = true;
-								//points.push_back(vector<point>(0));
-
 								line tmpLine;
 								tmpLine.points = vector<point>(0);
 								tmpLine.width = penSize;
@@ -665,46 +702,23 @@ int main(int argc, char **argv)
 								myToon.frames[curFrame].layers[0].lines.push_back(tmpLine);
 
 							}
+								
 						}
 						else
 						{
 							wasPressed = false;
 						}
-						
+							
 						if (wasPressed)
 						{
-							//points[points.size()-1].push_back(mp);
-							//if (event.type==SDL_MOUSEMOTION)//doesnt work ;/
-								myToon.frames[curFrame].layers[0].lines[myToon.frames[curFrame].layers[0].lines.size()-1].points.push_back(mp);
-						}
-
-					//}
-					//printf("%u %u\n",event.type,SDL_KEYDOWN);
-					//printf("%u %u\n",event.key.keysym.sym,SDLK_z);
-					
-					
-					
-					if (keys[SDL_SCANCODE_A]&&!wasPressed)
-					{
-						if (curFrame>0)
-							curFrame--;
-						/*else
-						{
-							curFrame=myToon.frames.size()-1;
-						}*/
-						needRedraw = true;
+							myToon.frames[curFrame].layers[0].lines[myToon.frames[curFrame].layers[0].lines.size()-1].points.push_back(mp);
+							needRedraw=true;
+							//needClear=true;	
+						}		
 					}
-					if (keys[SDL_SCANCODE_D]&&!wasPressed)
-					{
-						if ((size_t)curFrame+1<myToon.frames.size())
-							curFrame++;
-						/*else
-						{
-							curFrame=0;
-						}*/
-						needRedraw = true;
-					}
-				}
+				
+					ImGui::End();
+					ImGui::PopStyleColor();
 				
 			}break;
 			case 3://Wiki?
@@ -792,7 +806,8 @@ int main(int argc, char **argv)
 			}
 		}
 		
-        ImGui::Render();
+        //ImGui::Render();
+        //ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
         if (state==2&&!isPlaying)
 		{
 			//printf("%u\n",curFrame);
@@ -804,11 +819,11 @@ int main(int argc, char **argv)
 				//glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 				
 				glClearColor(1,1,1,1);
-				if (needRedraw)
+				if (needFullRender||needClear/*||needRedraw*/)
 				{
 					glClear(GL_COLOR_BUFFER_BIT);
+					needClear = false;
 				}
-
 				glMatrixMode(GL_PROJECTION);
 				glLoadIdentity();
 				gluOrtho2D( 0.0, window_w, window_h,0.0 );
@@ -821,30 +836,51 @@ int main(int argc, char **argv)
 				//Copy new texture
 				//Draw circle
 				
+
+				glEnable(GL_TEXTURE_2D);
 				if (isPlaying)
 				{
 					//DrawFrame(playingFrame);
 				}
 				else
 				{
+					/*glBindTexture(GL_TEXTURE_2D, renderedFrames[curFrame]);
+					glBegin(GL_QUADS);
+					glTexCoord2f(0, 0); glVertex2f(0,menuHeight);
+					glTexCoord2f(0, 1); glVertex2f(0,window_h-window_h/8);
+					glTexCoord2f(1, 1); glVertex2f(window_w-window_w/3,window_h-window_h/8);
+					glTexCoord2f(1, 0); glVertex2f(window_w-window_w/3,menuHeight);
+					//glVertex2f(0,window_h/8);
+					//glVertex2f(0,window_h-menuHeight);
+					//glVertex2f(window_w-window_w/3,window_h-menuHeight);
+					//glVertex2f(window_w-window_w/3,window_h/8);
+					glEnd();
+					glBindTexture(GL_TEXTURE_2D, 0);
+					*/
+					//needRedraw = true;
+					//needFullRender=true;
 					DrawFrame(curFrame);
+					
 				}
 				
-				if (!isPlaying)
+				if (!isPlaying&&(needRedraw||needFullRender))
 				{
 					glBindTexture(GL_TEXTURE_2D, renderedFrames[curFrame]);
+					//glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,menuHeight,window_w-window_w/3,window_h-menuHeight-window_h/8);
 					glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,window_h/8,window_w-window_w/3,window_h-menuHeight-window_h/8);
 					glBindTexture(GL_TEXTURE_2D, 0);
+					needRedraw=false;
+					needFullRender=false;
 				}
 				//printf("after frame %d\n",SDL_GetTicks()-ms);
-				
+				//glClear(GL_COLOR_BUFFER_BIT);
 			//}
 			
 		}//if (state==2)
-        
+        ImGui::Render();
         ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 		
-		glColor4f(curColor[0],curColor[1],curColor[2],curColor[3]);
+		//glColor4f(curColor[0],curColor[1],curColor[2],curColor[3]);
 		//DrawCircle(mx, my, penSize/2,penSize);
 		SDL_GL_SwapWindow(window);
 		//printf("after all %d\n",SDL_GetTicks()-ms);
@@ -854,6 +890,7 @@ int main(int argc, char **argv)
 		if (ms < MSPF)
 			SDL_Delay(MSPF-ms);
 	}
+    
     
     ImGui_ImplOpenGL2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
@@ -873,14 +910,22 @@ void DrawFrame(int n)
 	
 	size_t l=myToon.frames[curFrame].curLayer;
 	size_t i;
-	if (needRedraw)
+	if (needFullRender)
 	{
 		i=0;
-		needRedraw = false;
+		//needFullRender = false;
+		puts("nFullR");
+	}
+	else if (needRedraw)
+	{
+		i=myToon.frames[curFrame].layers[l].lines.size()-1;
+		//needRedraw=false;
+		puts("nR");
 	}
 	else
 	{
-		i=myToon.frames[curFrame].layers[l].lines.size()-1;
+		i=myToon.frames[curFrame].layers[l].lines.size();
+		//puts("not need");
 	}
 	
 	for (;i<myToon.frames[curFrame].layers[l].lines.size();i++)
@@ -1076,7 +1121,7 @@ void DrawFrame(int n)
 
 Uint32 DrawFrame_callback(Uint32 interval, void *param)
 {
-	needRedraw = true;
+	//needRedraw = true;
 	printf("%d frame drown\n",playingFrame);
 	if ((size_t)playingFrame+1<myToon.frames.size())
 		playingFrame++;
